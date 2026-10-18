@@ -1,0 +1,94 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+
+# Environment variables
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Generated models
+models/*.pkl
+
+# Raw experimental data
+data/raw/*
+!data/raw/.gitkeep
+# Local backup files
+*.backup
+
+# Large generated synthetic datasets
+data/processed/neurosense_synthetic_1m.csv
+data/processed/neurosense_eeg_v2_synthetic_1m.csv
+
+# Runtime data
+data/logs/*.csv
+
+# Local NeuroSense database
+data/database/*.db
+
+# Clinical EEG stays in an authorized external dataset location.
+*.[eE][dD][fF]
+*.[bB][dD][fF]
+*.seizure
+*.seizures
+data/seizure_research/
+/reports/checkpoint_d7/source_metadata/
+
+# Seizure pilot outputs (real data is staged outside the repository).
+/seizure_research_runs/
+/artifacts/seizure_research/
+*.parquet
+*.npz
+xgboost.json
+test_predictions.json
+test_evaluation.json
+feature_manifest.json
+split_manifest.json
+
+# External seizure archives, trained bundles, and private human review records.
+*.edf.zip
+*.edf.zip.pending
+*.zip.part
+archive-approval.json
+faculty-approval.json
+annotation-review-packet.json
+review-plan.json
+review_packet.json
+cohort_manifest.json
+scaler.npz
+*.ubj
+*.joblib
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# SQLite temporary files
+data/database/*.db-journal
+data/database/*.db-wal
+data/database/*.db-shm
+
+# Logs
+*.log

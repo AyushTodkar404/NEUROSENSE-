@@ -1,0 +1,153 @@
+"""Browser-only camera positioning; mounted only in the authenticated workspace."""
+
+from pathlib import Path
+
+import streamlit as st
+
+
+STATIC = Path(__file__).parent / "static"
+
+webcam_preview = st.components.v2.component(
+    "neurosense_webcam_preview",
+    html="""
+    <section class="webcam-panel" aria-label="Face alignment camera-positioning check">
+        <div class="alignment-heading">
+            <span class="alignment-kicker">CAMERA SETUP</span>
+            <h3>Find your frame</h3>
+            <p>Center your face, look straight ahead, and keep your eyes comfortably open.</p>
+        </div>
+        <div class="webcam-controls">
+            <button id="enable-camera" type="button">Enable Camera</button>
+            <button id="disable-camera" type="button" disabled>Disable Camera</button>
+        </div>
+        <p id="camera-status" role="status" aria-live="polite">Camera is off.</p>
+        <section class="rppg-panel" aria-labelledby="rppg-heading">
+            <div>
+                <span class="alignment-kicker">EXPERIMENTAL · OPT IN</span>
+                <h3 id="rppg-heading">Experimental Webcam Pulse (rPPG)</h3>
+                <p class="alignment-hint">Uses local facial skin-color changes while monitoring is active. Research-only; not a medical heart-rate measurement.</p>
+            </div>
+            <label class="rppg-opt-in"><input id="rppg-enabled" type="checkbox"> Enable experimental pulse estimation</label>
+            <div class="rppg-results" aria-live="polite" aria-atomic="true">
+                <div><span>Estimated pulse</span><strong id="rppg-bpm">Unavailable</strong></div>
+                <div><span>Signal quality</span><strong id="rppg-quality">Unavailable</strong></div>
+                <div><span>Warm-up</span><strong id="rppg-progress">0 / 25 s</strong></div>
+                <div><span>Observation window</span><strong id="rppg-duration">0.0 s</strong></div>
+                <div><span>Sampling coverage</span><strong id="rppg-coverage">0%</strong></div>
+                <div><span>Data source</span><strong id="rppg-source">UNAVAILABLE</strong></div>
+            </div>
+            <p id="rppg-reason" role="status">Enable the camera and monitoring, then opt in to collect a local pulse signal.</p>
+            <p class="rppg-disclaimer">REAL WEBCAM rPPG · No frames or raw color traces are uploaded or retained. Experimental wellness research only; not ECG, diagnosis, or an emergency monitor.</p>
+            <details class="rppg-reference">
+                <summary>Optional reference-device validation (kept in this browser session)</summary>
+                <div class="rppg-reference-inputs">
+                    <label>Reference device/source <input id="rppg-reference-source" type="text" maxlength="100" placeholder="e.g. pulse oximeter"></label>
+                    <label>Reference pulse (BPM) <input id="rppg-reference-bpm" type="number" min="25" max="250" step="1"></label>
+                    <label>Lighting condition <select id="rppg-reference-light"><option>Normal indoor</option><option>Dim</option><option>Bright / glare</option></select></label>
+                    <label>Motion condition <select id="rppg-reference-motion"><option>Still</option><option>Small movement</option><option>Frequent movement</option></select></label>
+                </div>
+                <div class="webcam-controls">
+                    <button id="rppg-record-reference" type="button">Record paired observation</button>
+                    <button id="rppg-export-reference" type="button" disabled>Export local CSV</button>
+                </div>
+                <p id="rppg-reference-summary" role="status">No paired reference observations in this session.</p>
+                <p class="alignment-hint">Entries are temporary, stay in memory in this browser component, and are cleared on navigation. Export is an explicit local download.</p>
+            </details>
+        </section>
+        <div class="webcam-stage">
+            <p id="camera-placeholder">Enable your camera to begin the positioning check.</p>
+            <div id="video-viewport" hidden>
+                <video id="camera-video" aria-label="Live webcam preview" autoplay muted playsinline hidden></video>
+                <div id="alignment-guide" data-tone="neutral" aria-hidden="true"></div>
+                <span class="preview-label">LIVE · ON DEVICE</span>
+            </div>
+        </div>
+        <div class="alignment-feedback">
+            <p id="alignment-message" role="status" aria-live="polite">Camera positioning has not started.</p>
+            <div class="calibration-label">
+                <label for="calibration-progress">Alignment calibration</label>
+                <span id="calibration-value">0%</span>
+            </div>
+            <progress id="calibration-progress" max="1" value="0">0%</progress>
+            <p class="alignment-hint">Keep one face centered for 3 continuous seconds.</p>
+            <div class="webcam-controls">
+                <button id="start-monitoring" type="button" disabled>Start Monitoring</button>
+                <button id="pause-monitoring" type="button" disabled>Pause</button>
+                <button id="resume-monitoring" type="button" disabled>Resume</button>
+                <button id="stop-monitoring" type="button" disabled>Stop Monitoring</button>
+                <button id="retry-alignment" type="button" hidden>Retry Alignment</button>
+            </div>
+            <p id="monitoring-readiness" role="status" aria-live="polite" aria-atomic="true">
+                Start is unavailable. Enable the camera and complete alignment calibration.
+            </p>
+            <details id="alignment-diagnostics" hidden>
+                <summary>Development alignment diagnostics</summary>
+                <dl>
+                    <dt>Camera ready</dt><dd id="diag-camera">No</dd>
+                    <dt>Face detector ready</dt><dd id="diag-detector">No</dd>
+                    <dt>Exactly one face detected</dt><dd id="diag-one-face">No</dd>
+                    <dt>Face centered</dt><dd id="diag-centered">Waiting</dd>
+                    <dt>Face-size check</dt><dd id="diag-face-size">Waiting</dd>
+                    <dt>Lighting check</dt><dd id="diag-lighting">Waiting</dd>
+                    <dt>Head-pose check</dt><dd id="diag-head-pose">Waiting</dd>
+                    <dt>Stability timer</dt><dd id="diag-stability">0.0 / 3.0 s</dd>
+                    <dt>Current blocking reason</dt><dd id="diag-blocking">Enable the camera first.</dd>
+                </dl>
+            </details>
+        </div>
+        <p class="alignment-disclaimer">Alignment is a camera-positioning check. All session measurements
+        are experimental behavioral indicators for adult wellness research. They do not measure brainwaves
+        or stress, diagnose fatigue or neurological disease, or detect seizures. No identity verification or face matching.</p>
+        <div class="tiredness-inputs">
+            <label>Before-session tiredness (optional, self-reported)
+                <select id="tiredness-before" aria-label="Before-session tiredness">
+                    <option value="">Not provided</option>
+                    <option value="0">0 — Not tired</option><option>1</option><option>2</option><option>3</option><option>4</option>
+                    <option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option value="10">10 — Very tired</option>
+                </select>
+            </label>
+            <label>After-session tiredness (optional, self-reported)
+                <select id="tiredness-after" aria-label="After-session tiredness" disabled>
+                    <option value="">Not provided</option>
+                    <option value="0">0 — Not tired</option><option>1</option><option>2</option><option>3</option><option>4</option>
+                    <option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option value="10">10 — Very tired</option>
+                </select>
+            </label>
+        </div>
+        <p id="rating-summary" class="alignment-hint">Self-reports are separate from camera measurements.</p>
+        <p id="session-status" role="status" aria-live="polite">No session started.</p>
+        <div class="behavior-metrics" aria-label="Experimental behavioral measurements">
+            <div class="behavior-card"><span>Blinks observed</span><strong id="blink-count">—</strong></div>
+            <div class="behavior-card"><span>Blinks / valid minute</span><strong id="blink-rate">—</strong><small>Shown after 10 valid seconds</small></div>
+            <div class="behavior-card"><span>Current eye closure</span><strong id="eye-closure">—</strong><small id="last-closure">Last closure: —</small></div>
+            <div class="behavior-card"><span>Time eyes appear closed</span><strong id="closed-percent">—</strong><small>Percentage of valid observed time</small></div>
+            <div class="behavior-card"><span>Head pose (approximate)</span><strong id="head-pose">—</strong><small>Yaw / pitch / roll, degrees</small></div>
+            <div class="behavior-card"><span>Head movement</span><strong id="head-movement">—</strong><small>Smoothed angular speed</small></div>
+            <div class="behavior-card"><span>Face tracking confidence</span><strong id="tracking-confidence">Unavailable</strong><small>Heuristic; not a model probability</small></div>
+            <div class="behavior-card"><span>Measurement coverage</span><strong id="measurement-quality">—</strong><small id="valid-time">Valid observed time: 0.0 s</small></div>
+        </div>
+        <div class="behavior-chart">
+            <h4>Session timeline <small>Latest 5 minutes · local time</small></h4>
+            <svg id="behavior-timeline" viewBox="0 0 600 220" role="img" aria-label="Timestamped experimental eye closure and head movement timeline">
+                <text x="8" y="16" class="chart-eye-label">Eyes closed, % of valid time (0–100%)</text>
+                <path d="M 8 92 H 592 M 8 188 H 592" class="chart-axis"/>
+                <path id="closed-timeline" class="chart-eye" fill="none"/>
+                <text x="8" y="116" class="chart-motion-label">Head movement (0–60°/s; higher values clipped)</text>
+                <path id="motion-timeline" class="chart-motion" fill="none"/>
+                <text id="timeline-start" x="8" y="214">—</text>
+                <text id="timeline-end" x="592" y="214" text-anchor="end">—</text>
+            </svg>
+            <p id="timeline-summary" class="alignment-hint">Start a session to see a timeline. Gaps represent unavailable measurements.</p>
+        </div>
+        <p class="alignment-hint">Glasses glare, occlusion, lighting, camera speed, and eye shape can reduce accuracy.
+        Realign and Resume when quality recovers. No medical alerts are generated.</p>
+        <p class="alignment-hint">Nothing is saved or uploaded. Measurements and ratings are cleared when you leave this page or start a new session.</p>
+    </section>
+    """,
+    css=(STATIC / "webcam.css").read_text(encoding="utf-8"),
+    # Streamlit serves one inline ES module; compose local modules without
+    # relative browser imports or a separate frontend build toolchain.
+    js="\n".join((STATIC / name).read_text(encoding="utf-8") for name in (
+        "webcam_alignment.js", "webcam_behavior.js", "webcam_rppg.js", "webcam_session_ui.js", "webcam_detector.js", "webcam.js",
+    )),
+)
