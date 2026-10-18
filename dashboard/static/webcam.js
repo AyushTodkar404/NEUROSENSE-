@@ -416,7 +416,7 @@ export default function mountWebcam(component) {
           const state = tracker.update(aligned, now);
           if (!aligned || state.progress === 0) calibration.reset();
           if (aligned) calibration.add(eyes, now);
-          eyeBaseline = state.ready ? calibration.baseline() : null;
+          eyeBaseline = state.ready ? (calibration.baseline() || calibration.fallbackBaseline()) : null;
           const ready = state.ready && eyeBaseline !== null;
           const text = !quality.valid ? quality.reason : !check.aligned ? check.message
             : ready ? (["paused", "quality_paused"].includes(session.state) ? "Ready to Resume" : "Ready for Monitoring")

@@ -30,20 +30,36 @@ export class EyeCalibration {
   constructor() { this.reset(); }
   reset() { this.samples = []; }
   add(eyes, now) {
-    if (!eyes || !Number.isFinite(now) || ![eyes.left, eyes.right].every(v => Number.isFinite(v) && v >= 0 && v <= .65)) { this.reset(); return; }
+    if (!eyes || !Number.isFinite(now) || ![eyes.left, eyes.right].every(v => Number.isFinite(v) && v >= 0 && v <= .65)) {
+      return;
+    }
     this.samples.push({ left: eyes.left, right: eyes.right, time: now });
-    this.samples = this.samples.filter(s => now - s.time <= 3500).slice(-100);
+    this.samples = this.samples.filter(s => now - s.time <= 4000).slice(-100);
   }
   baseline() {
-    if (this.samples.length < BEHAVIOR.calibrationSamples || this.samples.at(-1).time - this.samples[0].time < 2500) return null;
+    if (this.samples.length < 10) return null;
+    const timeSpan = this.samples.at(-1).time - this.samples[0].time;
+    if (this.samples.length < BEHAVIOR.calibrationSamples && timeSpan < 1500) return null;
     const baseline = {};
     for (const side of ["left", "right"]) {
       const values = this.samples.map(s => s[side]);
       const open = percentile(values, .8);
-      if (!Number.isFinite(open) || open < .18 || open > .5 || percentile(values, .5) < open * .75) return null;
+      if (!Number.isFinite(open) || open < .14 || open > .65) return null;
       baseline[side] = open;
     }
     return baseline;
+  }
+  fallbackBaseline() {
+    if (this.samples.length >= 5) {
+      const baseline = {};
+      for (const side of ["left", "right"]) {
+        const values = this.samples.map(s => s[side]);
+        const open = percentile(values, .8);
+        baseline[side] = Number.isFinite(open) && open >= 0.14 ? Math.min(0.55, open) : 0.28;
+      }
+      return baseline;
+    }
+    return { left: 0.28, right: 0.28 };
   }
 }
 
