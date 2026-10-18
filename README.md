@@ -1,3 +1,5 @@
+# NEUROSENSE-MULTI FUNCTIONAL BRAIN ATTENTION SYSTEM
+
 # 🧠 NeuroSense
 
 > **Academic Research Prototype**: Multi-sensor cognitive attention estimation, browser-based contactless webcam monitoring, and pediatric EEG seizure research.
