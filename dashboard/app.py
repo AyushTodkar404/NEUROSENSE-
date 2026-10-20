@@ -39,8 +39,19 @@ if CSS_PATH.exists():
 
 def _brand() -> None:
     st.markdown(
-        '<div class="ns-brand"><div class="ns-kicker">Academic research prototype</div>'
-        '<h1>🧠 NeuroSense</h1><p>Multi-sensor attention monitoring</p></div>',
+        """
+        <div class="ns-brand">
+            <div class="ns-brand-badge">
+                <span class="ns-live-dot"></span>
+                <span>NEURO-OPTICAL PLATFORM</span>
+            </div>
+            <div class="ns-title-wrap">
+                <span class="ns-logo-icon">🧠</span>
+                <h1>NeuroSense</h1>
+            </div>
+            <p class="ns-subtitle">Multi-Sensor Cognitive Attention & Optical Physiological Intelligence</p>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -496,13 +507,32 @@ def render_analytics(user: dict) -> None:
 
 
 def render_profile(user: dict) -> None:
-    st.title("Profile")
+    st.title("Profile & Settings")
     st.markdown('<div class="ns-card">', unsafe_allow_html=True)
     st.write(f"**Display name:** {user['display_name']}")
     st.write(f"**Email:** {user['email']}")
     st.write(f"**Account created:** {user.get('created_at', 'Unknown')}")
     st.markdown("</div>", unsafe_allow_html=True)
-    st.caption("Your EEG sessions and prediction history are scoped to this account.")
+    st.caption("Your EEG sessions and prediction history are strictly scoped to this account.")
+
+    with st.expander("📜 Privacy Policy & Research Terms"):
+        st.markdown(
+            "**Privacy Policy**\n"
+            "* All optical webcam telemetry (rPPG pulse, head motion, blink analysis) runs 100% on-device inside your browser. No video frames are ever recorded or uploaded.\n"
+            "* Sensor readings and attention metrics are private and strictly scoped to your account.\n\n"
+            "**Terms of Use**\n"
+            "* NeuroSense is an academic research prototype for cognitive attention modeling. It is not a clinical medical diagnostic device."
+        )
+
+    with st.expander("⚠️ Danger Zone — Delete Account"):
+        st.write("Permanently delete your account along with all saved EEG sessions, telemetry, and prediction history.")
+        confirm = st.checkbox("I confirm that I want to permanently delete my account and all associated data.")
+        if st.button("Permanently Delete Account", type="primary", disabled=not confirm):
+            auth_client.delete_account(user["id"])
+            _clear_auth()
+            st.success("Your account and all associated records have been deleted.")
+            st.rerun()
+
 
 
 def main() -> None:

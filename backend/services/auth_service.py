@@ -80,3 +80,9 @@ def current_user(token: str | None) -> dict | None:
 def logout_user(token: str | None) -> None:
     if token:
         repository.revoke_auth_session(digest_session_token(token))
+
+
+def delete_user(user_id: int) -> None:
+    initialize_database()
+    repository.delete_user_account(user_id)
+

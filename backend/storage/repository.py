@@ -165,3 +165,13 @@ def user_has_session(user_id: int, session_id: str) -> bool:
             "SELECT 1 FROM sensor_records WHERE user_id = ? AND session_id = ? LIMIT 1",
             (user_id, session_id),
         ).fetchone())
+
+
+def delete_user_account(user_id: int) -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM auth_sessions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM sensor_records WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM eeg_sessions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+

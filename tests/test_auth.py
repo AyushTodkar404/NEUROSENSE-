@@ -71,6 +71,12 @@ class AuthServiceTests(unittest.TestCase):
         )
         self.assertIsNone(auth_service.current_user(expired))
 
+    def test_delete_user_purges_account_and_sessions(self):
+        user = auth_service.register_user("delete_me@example.com", "SecurePass1", "Deletable")
+        auth_service.delete_user(user["id"])
+        self.assertIsNone(repository.get_user_by_email("delete_me@example.com"))
+
 
 if __name__ == "__main__":
     unittest.main()
+

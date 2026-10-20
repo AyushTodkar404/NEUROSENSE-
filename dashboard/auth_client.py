@@ -18,3 +18,8 @@ def current_user(token: str | None) -> dict | None:
 
 def logout(token: str | None) -> None:
     auth_service.logout_user(token)
+
+
+def delete_account(user_id: int) -> None:
+    auth_service.delete_user(user_id)
+
