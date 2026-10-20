@@ -4,12 +4,45 @@ from pathlib import Path
 DB_PATH = Path(__file__).resolve().parents[2] / "data/database/neurosense.db"
 
 
+class _ConnectionProxy:
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def __enter__(self):
+        return self._conn
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if exc_type is None:
+                self._conn.commit()
+            else:
+                self._conn.rollback()
+        finally:
+            self._conn.close()
+
+    def close(self):
+        self._conn.close()
+
+
+_ORIGINAL_SQLITE_CONNECT = sqlite3.connect
+
+
+def _sqlite_connect(*args, **kwargs):
+    return _ConnectionProxy(_ORIGINAL_SQLITE_CONNECT(*args, **kwargs))
+
+
+sqlite3.connect = _sqlite_connect
+
+
 def get_connection():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn = _ORIGINAL_SQLITE_CONNECT(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    return _ConnectionProxy(conn)
 
 
 def initialize_database():

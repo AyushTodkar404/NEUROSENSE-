@@ -21,7 +21,16 @@ from dashboard import auth_client, data_client  # noqa: E402
 
 
 initialize_database()
-st.set_page_config(page_title="NeuroSense", page_icon="🧠", layout="wide")
+st.set_page_config(
+    page_title="NeuroSense — Cognitive Attention & BCI Platform",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+st.markdown(
+    '<meta name="description" content="NeuroSense: Multi-sensor cognitive attention estimation, brainwave monitoring, and optical webcam telemetry.">',
+    unsafe_allow_html=True,
+)
 
 CSS_PATH = Path(__file__).parent / "static" / "neurosense.css"
 if CSS_PATH.exists():

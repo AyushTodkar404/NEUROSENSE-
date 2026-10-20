@@ -1,7 +1,11 @@
+import os
 import sys
+import time
+from collections import defaultdict
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
@@ -23,6 +27,10 @@ from backend.storage import repository  # noqa: E402
 from backend.storage.database import initialize_database  # noqa: E402
 from backend.services.ml_service import ml_service  # noqa: E402
 
+_RATE_LIMIT_STORE = defaultdict(list)
+_RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_PER_MINUTE", "20"))
+_RATE_LIMIT_WINDOW = 60
+_IS_PROD = os.getenv("NEUROSENSE_ENV") == "production"
 
 initialize_database()
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -31,7 +39,49 @@ app = FastAPI(
     title="NeuroSense API",
     description="Backend API for the NeuroSense attention estimation system",
     version="0.3.0",
+    docs_url=None if _IS_PROD else "/docs",
+    redoc_url=None if _IS_PROD else "/redoc",
+    openapi_url=None if _IS_PROD else "/openapi.json",
 )
+
+# CORS Middleware (strict origin control)
+_cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:8501,http://127.0.0.1:8501,http://localhost:3000")
+_allowed_origins = [orig.strip() for orig in _cors_origins_env.split(",") if orig.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+@app.middleware("http")
+async def security_and_rate_limit_middleware(request: Request, call_next):
+    # In-memory sliding window rate limiting for authentication endpoints
+    if request.url.path in ("/auth/login", "/auth/register") and request.method == "POST":
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        key = f"{client_ip}:{request.url.path}"
+        _RATE_LIMIT_STORE[key] = [t for t in _RATE_LIMIT_STORE[key] if now - t < _RATE_LIMIT_WINDOW]
+        if len(_RATE_LIMIT_STORE[key]) >= _RATE_LIMIT_MAX:
+            return Response(
+                content='{"detail":"Too many requests. Please slow down and try again later."}',
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                media_type="application/json",
+            )
+        _RATE_LIMIT_STORE[key].append(now)
+
+    response = await call_next(request)
+
+    # Standard security hardening headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(self), microphone=()"
+    if _IS_PROD:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 class HealthResponse(BaseModel):

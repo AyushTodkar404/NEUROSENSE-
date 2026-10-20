@@ -97,6 +97,22 @@ class AuthApiTests(unittest.TestCase):
             self.api.session_records("private-session", self.api.get_current_user(second_creds))
         self.assertEqual(error.exception.status_code, 404)
 
+    def test_security_headers_and_rate_limiting(self):
+        from starlette.testclient import TestClient
+        client = TestClient(self.api.app)
+        res = client.get("/health")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(res.headers.get("X-Frame-Options"), "DENY")
+        self.assertEqual(res.headers.get("X-XSS-Protection"), "1; mode=block")
+
+        # Test rate limiting triggers on excess requests
+        for _ in range(self.api._RATE_LIMIT_MAX):
+            client.post("/auth/login", json={"email": "wrong@example.com", "password": "WrongPassword1"})
+        excess = client.post("/auth/login", json={"email": "wrong@example.com", "password": "WrongPassword1"})
+        self.assertEqual(excess.status_code, 429)
+
 
 if __name__ == "__main__":
     unittest.main()
+
